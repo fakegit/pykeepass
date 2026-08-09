@@ -1,15 +1,31 @@
-from construct import Struct, Switch, Bytes, Int16ul, RawCopy, Check, this
-from .kdbx3 import DynamicHeader as DynamicHeader3
+from construct import Bytes, Check, Int16ul, RawCopy, Struct, Switch, this
+
 from .kdbx3 import Body as Body3
-from .kdbx4 import DynamicHeader as DynamicHeader4
+from .kdbx3 import DynamicHeader as DynamicHeader3
 from .kdbx4 import Body as Body4
+from .kdbx4 import DynamicHeader as DynamicHeader4
+
 
 # verify file signature
 def check_signature(ctx):
     return ctx.sig1 == b'\x03\xd9\xa2\x9a' and ctx.sig2 == b'\x67\xFB\x4B\xB5'
 
+
+class RawCopyRebuild(RawCopy):
+    """RawCopy that always rebuilds from .value, ignoring cached .data.
+
+    Without this, the header bytes captured at parse time are written back
+    verbatim and any modification to the header (e.g. the seed rotation done by
+    `PyKeePass.save`) is silently dropped."""
+
+    def _build(self, obj, stream, context, path):
+        if 'data' in obj:
+            del obj['data']
+        return super()._build(obj, stream, context, path)
+
+
 KDBX = Struct(
-    "header" / RawCopy(
+    "header" / RawCopyRebuild(
         Struct(
             "sig1" / Bytes(4),
             "sig2" / Bytes(4),
